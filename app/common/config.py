@@ -15,8 +15,8 @@ class SupabaseSettings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> SupabaseSettings:
-    load_dotenv(Path(__file__).parent.parent / ".env")
-
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    
     url = os.getenv("SUPABASE_URL")
     anon_key = os.getenv("SUPABASE_PUBLISHABLE_KEY")
     missing = [
@@ -33,3 +33,4 @@ def get_settings() -> SupabaseSettings:
         )
 
     return SupabaseSettings(url=url, anon_key=anon_key)
+

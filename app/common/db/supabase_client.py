@@ -9,3 +9,10 @@ from app.common.config import get_settings
 def get_supabase_client() -> Client:
     settings = get_settings()
     return create_client(settings.url, settings.anon_key)
+
+
+def create_authenticated_supabase_client(access_token: str) -> Client:
+    settings = get_settings()
+    client = create_client(settings.url, settings.anon_key)
+    client.postgrest.auth(access_token)
+    return client

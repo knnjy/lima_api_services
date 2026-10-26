@@ -39,3 +39,9 @@ Send the access token in an `Authorization: Bearer` header to
 `GET /auth/verify`. A valid token returns `valid`, the Supabase user ID, and
 email. Missing or invalid tokens return `401`; Supabase availability errors
 return `503`.
+
+Use `GET /me/farms` with the same bearer token to retrieve the authenticated
+user's active `farm_membership` rows, ordered by `joined_at`. The farm
+membership flow uses separate controller, service, and data-access classes.
+The repository query filters by the verified user's ID so it does not return
+other members of their farms.
