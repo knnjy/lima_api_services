@@ -1,7 +1,11 @@
 import httpx
 from gotrue.errors import AuthApiError, AuthError
-from gotrue.types import User
+from gotrue.types import AuthResponse, User
 from supabase import Client
+
+
+class InvalidCredentialsError(Exception):
+    pass
 
 
 class InvalidAccessTokenError(Exception):
@@ -15,6 +19,18 @@ class SupabaseAuthUnavailableError(Exception):
 class SupabaseAuthService:
     def __init__(self, client: Client) -> None:
         self._client = client
+
+    def sign_in_with_password(self, email: str, password: str) -> AuthResponse:
+        try:
+            return self._client.auth.sign_in_with_password(
+                {"email": email, "password": password}
+            )
+        except AuthApiError as exc:
+            if exc.status in (400, 401, 403, 422):
+                raise InvalidCredentialsError from exc
+            raise SupabaseAuthUnavailableError from exc
+        except (AuthError, httpx.HTTPError) as exc:
+            raise SupabaseAuthUnavailableError from exc
 
     def get_user_from_access_token(self, access_token: str) -> User:
         try:

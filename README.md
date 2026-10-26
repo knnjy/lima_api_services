@@ -1,21 +1,21 @@
 # Authentication
 
-This package verifies Supabase access tokens without decoding or trusting JWT
-claims locally. The request's bearer token is passed to Supabase Auth, which
-returns the authenticated user only when the token is valid.
+This package signs users in with Supabase Auth and verifies Supabase access
+tokens without decoding or trusting JWT claims locally.
 
 ## Layers
 
-- `controllers/auth_controller.py`: FastAPI `GET /auth/verify` route and HTTP
-  status mapping.
-- `services/supabase_auth_service.py`: token verification through Supabase Auth.
+- `controllers/auth_controller.py`: FastAPI sign-in and token verification
+  routes and HTTP status mapping.
+- `services/supabase_auth_service.py`: password sign-in and token verification
+  through Supabase Auth.
 - `dependencies.py`: cached Supabase client and service construction.
-- `config.py`: reads and validates the Supabase URL and anon/publishable key.
-- `schemas/auth_schemas.py`: response shape.
+- `config.py`: reads and validates the Supabase URL and publishable key.
+- `schemas/auth_schemas.py`: request and response shapes.
 
-Copy `.env.example` to `.env` in this directory and replace both placeholders.
-Alternatively, provide `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the process
-environment. Do not use a Supabase `service_role` key for token verification.
+Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `app/.env` or in the
+process environment. Do not use a Supabase `service_role` key for user sign-in
+or token verification.
 
 Include the router in the application's FastAPI instance:
 
@@ -25,6 +25,17 @@ from app.Authentication import router as authentication_router
 app.include_router(authentication_router)
 ```
 
-Send `Authorization: Bearer <supabase-access-token>` to `GET /auth/verify`.
-A valid token returns `valid`, the Supabase user ID, and email. Missing or
-invalid tokens return `401`; Supabase availability errors return `503`.
+Send `POST /auth/sign-in` with an email and password to sign in:
+
+```json
+{"email": "user@example.com", "password": "your-password"}
+```
+
+A successful response includes access and refresh tokens plus the user's ID
+and email. Invalid credentials return `401`; Supabase availability errors
+return `503`.
+
+Send the access token in an `Authorization: Bearer` header to
+`GET /auth/verify`. A valid token returns `valid`, the Supabase user ID, and
+email. Missing or invalid tokens return `401`; Supabase availability errors
+return `503`.

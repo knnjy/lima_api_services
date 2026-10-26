@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from app.common.supabase_client import get_supabase_client
+from app.common.db.supabase_client import get_supabase_client
 from app.Authentication.services.supabase_auth_service import SupabaseAuthService
 
 
