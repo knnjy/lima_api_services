@@ -3,6 +3,16 @@
 This package signs users in with Supabase Auth and verifies Supabase access
 tokens without decoding or trusting JWT claims locally.
 
+## Tech Stack
+
+- **Python** — programming language
+- **FastAPI** — API framework
+- **Supabase Auth** — authentication and access-token verification
+- **Uvicorn** — ASGI server
+- **Pydantic** — request and response data validation
+- **python-dotenv** — environment variable loading
+- **HTTPX** — HTTP client
+
 ## Layers
 
 - `controllers/auth_controller.py`: FastAPI sign-in and token verification
