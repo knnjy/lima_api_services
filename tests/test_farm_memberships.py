@@ -3,16 +3,19 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.Authentication.dependencies import AuthenticatedUser, get_authenticated_user
-from app.LivestockRegistry.controllers.farm_controllers import router
-from app.LivestockRegistry.data_access.farm_membership_repository import (
-    FarmMembershipDataAccessError,
-    FarmMembershipRepository,
+from app.common.dependencies.farm_access import (
+    AuthenticatedFarmUser,
+    FarmRoleMembership,
+    get_authenticated_farm_user,
 )
-from app.LivestockRegistry.dependencies import get_farm_membership_service
+from app.LivestockRegistry.controllers.farm_controllers import router
+
+from app.LivestockRegistry.dao.farm_membership_repository import FarmMembershipDataAccessError, FarmMembershipRepository
+from app.LivestockRegistry.membership_dependencies import get_farm_membership_service
 from app.LivestockRegistry.services.farm_membership_service import (
     FarmMembershipService,
     FarmMembershipUnavailableError,
@@ -117,3 +120,41 @@ class FarmMembershipControllerTests(unittest.TestCase):
         response = self.client.get("/me/farms")
 
         self.assertEqual(response.status_code, 503)
+
+
+class AuthenticatedFarmUserDependencyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.authenticated_user = AuthenticatedUser(
+            SimpleNamespace(id="user-123"),
+            "access-token",
+        )
+
+    def test_builds_typed_farm_role_memberships(self) -> None:
+        service = Mock(spec=FarmMembershipService)
+        service.get_active_memberships.return_value = [
+            {"farm_id": "farm-1", "role_id": "role-1"},
+            {"farm_id": "farm-2", "role_id": "role-2"},
+        ]
+
+        result = get_authenticated_farm_user(self.authenticated_user, service)
+
+        self.assertEqual(
+            result,
+            AuthenticatedFarmUser(
+                self.authenticated_user,
+                [
+                    FarmRoleMembership("farm-1", "role-1"),
+                    FarmRoleMembership("farm-2", "role-2"),
+                ],
+            ),
+        )
+        service.get_active_memberships.assert_called_once_with("user-123")
+
+    def test_unavailable_membership_service_returns_503(self) -> None:
+        service = Mock(spec=FarmMembershipService)
+        service.get_active_memberships.side_effect = FarmMembershipUnavailableError
+
+        with self.assertRaises(HTTPException) as raised:
+            get_authenticated_farm_user(self.authenticated_user, service)
+
+        self.assertEqual(raised.exception.status_code, 503)

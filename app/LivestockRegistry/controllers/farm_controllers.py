@@ -6,7 +6,7 @@ from app.Authentication.dependencies import (
     AuthenticatedUser,
     get_authenticated_user,
 )
-from app.LivestockRegistry.dependencies import get_farm_membership_service
+from app.LivestockRegistry.membership_dependencies import get_farm_membership_service
 from app.LivestockRegistry.services.farm_membership_service import (
     FarmMembershipService,
     FarmMembershipUnavailableError,
