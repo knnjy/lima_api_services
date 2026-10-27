@@ -10,7 +10,7 @@ from app.LivestockRegistry.services.farm_membership_service import (
 from app.LivestockRegistry.dao.farm_membership_repository import (
     FarmMembershipRepository,
 )
-from app.common.db.supabase_client import create_authenticated_supabase_client
+from app.core.db.supabase_client import create_authenticated_supabase_client
 
 
 def get_farm_membership_service(
