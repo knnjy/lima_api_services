@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from gotrue.types import User
 
-from app.common.db.supabase_client import get_supabase_client
+from app.core.db.supabase_client import get_supabase_client
 from app.Authentication.services.supabase_auth_service import (
     InvalidAccessTokenError,
     SupabaseAuthService,

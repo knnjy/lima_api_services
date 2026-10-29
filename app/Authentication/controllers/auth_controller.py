@@ -3,6 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.Authentication.dependencies import get_supabase_auth_service
 from app.Authentication.schemas.auth_schemas import (
+    RefreshTokenRequest,
     SignInRequest,
     SignInResponse,
     TokenVerificationResponse,
@@ -10,6 +11,7 @@ from app.Authentication.schemas.auth_schemas import (
 from app.Authentication.services.supabase_auth_service import (
     InvalidCredentialsError,
     InvalidAccessTokenError,
+    InvalidRefreshTokenError,
     SupabaseAuthService,
     SupabaseAuthUnavailableError,
 )
@@ -41,6 +43,41 @@ def sign_in(credentials: SignInRequest) -> SignInResponse:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Additional verification is required to complete sign-in",
+        )
+
+    return SignInResponse(
+        access_token=auth_response.session.access_token,
+        refresh_token=auth_response.session.refresh_token,
+        token_type=auth_response.session.token_type,
+        expires_in=auth_response.session.expires_in,
+        user_id=auth_response.user.id,
+        email=auth_response.user.email,
+    )
+
+
+@router.post("/refresh", response_model=SignInResponse)
+def refresh_access_token(request: RefreshTokenRequest) -> SignInResponse:
+    try:
+        auth_response = get_supabase_auth_service().refresh_session(
+            request.refresh_token
+        )
+    except InvalidRefreshTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token; sign in again",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    except SupabaseAuthUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication provider is unavailable",
+        ) from exc
+
+    if auth_response.user is None or auth_response.session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token; sign in again",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     return SignInResponse(

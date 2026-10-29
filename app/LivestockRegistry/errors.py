@@ -1,0 +1,2 @@
+class FarmNotFoundError(Exception):
+    pass
