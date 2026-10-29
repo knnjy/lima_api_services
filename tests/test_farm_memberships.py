@@ -15,7 +15,7 @@ from app.common.dependencies.farm_access import (
 from app.LivestockRegistry.controllers.farm_controllers import router
 
 from app.LivestockRegistry.dao.farm_membership_repository import FarmMembershipDataAccessError, FarmMembershipRepository
-from app.LivestockRegistry.membership_dependencies import get_farm_membership_service
+from app.LivestockRegistry.utils.membership_dependencies import get_farm_membership_service
 from app.LivestockRegistry.services.farm_membership_service import (
     FarmMembershipService,
     FarmMembershipUnavailableError,
