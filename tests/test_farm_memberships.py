@@ -1,6 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
+from uuid import UUID, uuid4
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -12,14 +13,19 @@ from app.common.dependencies.farm_access import (
     FarmRoleMembership,
     get_authenticated_farm_user,
 )
-from app.LivestockRegistry.controllers.farm_controllers import router
+from app.LivestockRegistry.router.farm_membership_router import router
 
-from app.LivestockRegistry.dao.farm_membership_repository import FarmMembershipDataAccessError, FarmMembershipRepository
+from app.LivestockRegistry.dao.farm_membership_repository import (
+    FarmMembershipDataAccessError,
+    FarmMembershipRepository,
+)
 from app.LivestockRegistry.utils.membership_dependencies import get_farm_membership_service
 from app.LivestockRegistry.services.farm_membership_service import (
+    FarmNotFoundError,
     FarmMembershipService,
     FarmMembershipUnavailableError,
 )
+from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
 
 
 class FarmMembershipRepositoryTests(unittest.TestCase):
@@ -60,6 +66,44 @@ class FarmMembershipRepositoryTests(unittest.TestCase):
         with self.assertRaises(FarmMembershipDataAccessError):
             FarmMembershipRepository(client).get_active_memberships("user-123")
 
+    def test_create_membership_requests_inserted_row(self) -> None:
+        membership = {"user_id": "user-123", "farm_id": "farm-123", "role_id": 1}
+        query = Mock()
+        query.insert.return_value = query
+        query.select.return_value = query
+        query.execute.return_value = SimpleNamespace(data=[membership])
+        client = Mock()
+        client.table.return_value = query
+
+        result = FarmMembershipRepository(client).create_membership(
+            FarmMembershipCreate(
+                user_id=UUID("00000000-0000-0000-0000-000000000123"),
+                farm_id=UUID("00000000-0000-0000-0000-000000000456"),
+                role_id=1,
+            )
+        )
+
+        self.assertEqual(result, membership)
+        client.table.assert_called_once_with("farm_membership")
+        query.select.assert_called_once_with("*")
+
+    def test_farm_exists_checks_farm_foreign_key(self) -> None:
+        query = Mock()
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.limit.return_value = query
+        query.execute.return_value = SimpleNamespace(data=[{"farm_id": "farm-123"}])
+        client = Mock()
+        client.table.return_value = query
+
+        exists = FarmMembershipRepository(client).farm_exists("farm-123")
+
+        self.assertTrue(exists)
+        client.table.assert_called_once_with("farm")
+        query.select.assert_called_once_with("farm_id")
+        query.eq.assert_called_once_with("farm_id", "farm-123")
+        query.limit.assert_called_once_with(1)
+
 
 class FarmMembershipServiceTests(unittest.TestCase):
     def test_get_active_memberships_delegates_to_repository(self) -> None:
@@ -78,6 +122,37 @@ class FarmMembershipServiceTests(unittest.TestCase):
 
         with self.assertRaises(FarmMembershipUnavailableError):
             FarmMembershipService(repository).get_active_memberships("user-123")
+
+    def test_create_membership_checks_farm_before_insert(self) -> None:
+        member_data = FarmMembershipCreate(
+            user_id=uuid4(),
+            farm_id=uuid4(),
+            role_id=1,
+        )
+        created = {"id": str(uuid4())}
+        repository = Mock(spec=FarmMembershipRepository)
+        repository.farm_exists.return_value = True
+        repository.create_membership.return_value = created
+
+        result = FarmMembershipService(repository).create_membership(member_data)
+
+        self.assertEqual(result, created)
+        repository.farm_exists.assert_called_once_with(str(member_data.farm_id))
+        repository.create_membership.assert_called_once_with(member_data)
+
+    def test_create_membership_does_not_insert_when_farm_is_missing(self) -> None:
+        member_data = FarmMembershipCreate(
+            user_id=uuid4(),
+            farm_id=uuid4(),
+            role_id=1,
+        )
+        repository = Mock(spec=FarmMembershipRepository)
+        repository.farm_exists.return_value = False
+
+        with self.assertRaises(FarmNotFoundError):
+            FarmMembershipService(repository).create_membership(member_data)
+
+        repository.create_membership.assert_not_called()
 
 
 class FarmMembershipControllerTests(unittest.TestCase):
@@ -120,6 +195,56 @@ class FarmMembershipControllerTests(unittest.TestCase):
         response = self.client.get("/me/farms")
 
         self.assertEqual(response.status_code, 503)
+
+    def test_create_membership_uses_authenticated_user_and_returns_created_row(self) -> None:
+        user_id = uuid4()
+        farm_id = uuid4()
+        self.authenticated_user.user = SimpleNamespace(id=user_id)
+        membership = {
+            "id": str(uuid4()),
+            "user_id": str(user_id),
+            "farm_id": str(farm_id),
+            "role_id": 1,
+            "invitation_id": None,
+            "status": "active",
+            "joined_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+        }
+        service = Mock(spec=FarmMembershipService)
+        service.create_membership.return_value = membership
+        self.client.app.dependency_overrides[get_farm_membership_service] = (
+            lambda: service
+        )
+
+        response = self.client.post(
+            "/me/farms",
+            json={"farm_id": str(farm_id), "role_id": 1},
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json(), membership)
+        service.create_membership.assert_called_once_with(
+            FarmMembershipCreate(
+                user_id=user_id,
+                farm_id=farm_id,
+                role_id=1,
+            )
+        )
+
+    def test_create_membership_returns_404_for_missing_farm(self) -> None:
+        self.authenticated_user.user = SimpleNamespace(id=uuid4())
+        service = Mock(spec=FarmMembershipService)
+        service.create_membership.side_effect = FarmNotFoundError
+        self.client.app.dependency_overrides[get_farm_membership_service] = (
+            lambda: service
+        )
+
+        response = self.client.post(
+            "/me/farms",
+            json={"farm_id": str(uuid4()), "role_id": 1},
+        )
+
+        self.assertEqual(response.status_code, 404)
 
 
 class AuthenticatedFarmUserDependencyTests(unittest.TestCase):

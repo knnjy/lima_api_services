@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import Depends, HTTPException, Response, status
 
 from app.LivestockRegistry.dto.animal_create import AnimalCreate
 from app.LivestockRegistry.dto.animal_response import AnimalResponse
@@ -127,39 +127,3 @@ class AnimalController:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Animal service is unavailable",
         )
-
-
-router = APIRouter(prefix="/me/animals", tags=["animals"])
-animal_controller = AnimalController()
-
-router.add_api_route(
-    "",
-    animal_controller.list_animals,
-    methods=["GET"],
-    response_model=list[AnimalResponse],
-)
-router.add_api_route(
-    "",
-    animal_controller.create_animal,
-    methods=["POST"],
-    response_model=AnimalResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-router.add_api_route(
-    "/{animal_id}",
-    animal_controller.get_animal,
-    methods=["GET"],
-    response_model=AnimalResponse,
-)
-router.add_api_route(
-    "/{animal_id}",
-    animal_controller.update_animal,
-    methods=["PATCH"],
-    response_model=AnimalResponse,
-)
-router.add_api_route(
-    "/{animal_id}",
-    animal_controller.delete_animal,
-    methods=["DELETE"],
-    status_code=status.HTTP_204_NO_CONTENT,
-)

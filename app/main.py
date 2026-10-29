@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 
 from app.Authentication import router as authentication_router
-from app.LivestockRegistry.controllers.farm_controllers import router as farm_router
-from app.LivestockRegistry.controllers.animal_controller import router as animal_router
+from app.LivestockRegistry.router.farm_router import router as farm_crud_router
+from app.LivestockRegistry.router.farm_membership_router import router as farm_router
+from app.LivestockRegistry.router.animal_router import router as animal_router
 
 app = FastAPI()
 app.include_router(authentication_router)
+app.include_router(farm_crud_router)
 app.include_router(farm_router)
 app.include_router(animal_router)

@@ -29,11 +29,12 @@ app/
 │   ├── services/          # Supabase Auth operations
 │   └── dependencies.py    # Verified-user authentication dependency
 ├── LivestockRegistry/
-│   ├── controllers/       # Farm and livestock HTTP routes
+│   ├── controllers/       # Farm and livestock HTTP handlers
 │   ├── dao/               # Supabase data-access repositories
+│   ├── dto/               # Request and response schemas
+│   ├── router/            # Feature HTTP route registration
 │   ├── services/          # Feature business logic
-│   └── membership_dependencies.py
-│                          # Builds the authenticated membership service
+│   └── utils/             # Feature dependency providers
 ├── common/
 │   ├── config.py          # Application settings
 │   ├── db/                # Shared Supabase client setup
@@ -86,6 +87,17 @@ Send the access token in an `Authorization: Bearer` header to
 email. Missing or invalid tokens return `401`; Supabase availability errors
 return `503`.
 
+When an access token expires, send the saved refresh token to
+`POST /auth/refresh`:
+
+```json
+{"refresh_token": "your-refresh-token"}
+```
+
+The response contains a new access token and refresh token. Replace both saved
+tokens with the returned values. If the refresh token is expired or invalid,
+the endpoint returns `401` and the user must sign in again.
+
 ## Farm Membership API
 
 Use `GET /me/farms` with the same bearer token to retrieve the authenticated
@@ -96,3 +108,13 @@ that user's active memberships.
 The shared authenticated farm context preserves each farm and role as a pair;
 it does not combine them into separate ID lists, which would lose the
 farm-to-role association.
+
+## Farm API
+
+Farm CRUD uses `GET /farms` and `POST /farms`, plus
+`GET /farms/{farm_id}`, `PATCH /farms/{farm_id}`, and
+`DELETE /farms/{farm_id}`. These routes require authentication and operate only
+on farms where the user has an active membership. Creating a farm assigns the
+authenticated user as its creator and creates an owner membership. Only an
+owner (`role_id = 1`) may update or delete a farm; workers receive `403` for
+those operations.
