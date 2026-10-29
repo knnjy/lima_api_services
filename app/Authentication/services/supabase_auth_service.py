@@ -12,6 +12,10 @@ class InvalidAccessTokenError(Exception):
     pass
 
 
+class InvalidRefreshTokenError(Exception):
+    pass
+
+
 class SupabaseAuthUnavailableError(Exception):
     pass
 
@@ -28,6 +32,16 @@ class SupabaseAuthService:
         except AuthApiError as exc:
             if exc.status in (400, 401, 403, 422):
                 raise InvalidCredentialsError from exc
+            raise SupabaseAuthUnavailableError from exc
+        except (AuthError, httpx.HTTPError) as exc:
+            raise SupabaseAuthUnavailableError from exc
+
+    def refresh_session(self, refresh_token: str) -> AuthResponse:
+        try:
+            return self._client.auth.refresh_session(refresh_token)
+        except AuthApiError as exc:
+            if exc.status in (400, 401, 403):
+                raise InvalidRefreshTokenError from exc
             raise SupabaseAuthUnavailableError from exc
         except (AuthError, httpx.HTTPError) as exc:
             raise SupabaseAuthUnavailableError from exc
