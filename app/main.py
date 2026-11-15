@@ -7,6 +7,7 @@ from app.LivestockRegistry.router.farm_membership_router import router as farm_r
 from app.LivestockRegistry.router.animal_router import router as animal_router
 from app.LivestockRegistry.router.animal_group_router import router as animal_group_router
 from app.LivestockRegistry.router.species_router import router as species_router
+from app.LivestockRegistry.router.farm_invitation_router import router as farm_invitation_router
 
 app = FastAPI()
 app.include_router(authentication_router)
@@ -16,3 +17,4 @@ app.include_router(farm_router)
 app.include_router(animal_router)
 app.include_router(animal_group_router)
 app.include_router(species_router)
+app.include_router(farm_invitation_router)
