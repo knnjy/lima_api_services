@@ -2,13 +2,16 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Response, status
 
+from app.Authentication.dependencies import AuthenticatedUser, get_authenticated_user
 from app.LivestockRegistry.dto.farm_invitation_schema import (
+    FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
     FarmInvitationResponse,
 )
 from app.LivestockRegistry.services.farm_invitation_service import (
     FarmInvitationAlreadyExistsError,
+    FarmInvitationContactMismatchError,
     FarmInvitationNotFoundError,
     FarmInvitationService,
     FarmInvitationUnavailableError,
@@ -25,6 +28,31 @@ from app.common.dependencies.farm_access import (
 
 
 class FarmInvitationController:
+    def accept_invitation(
+        self,
+        invitation: FarmInvitationAccept,
+        _authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
+        invitation_service: FarmInvitationService = Depends(
+            get_farm_invitation_service
+        ),
+    ) -> FarmInvitationResponse:
+        try:
+            return invitation_service.accept_invitation(invitation)
+        except FarmInvitationNotFoundError as exc:
+            raise self._not_found_error() from exc
+        except InvalidFarmInvitationStateError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+        except FarmInvitationContactMismatchError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invitation contact does not match the authenticated user",
+            ) from exc
+        except FarmInvitationUnavailableError as exc:
+            raise self._unavailable_error() from exc
+
     def list_invitations(
         self,
         farm_id: UUID,

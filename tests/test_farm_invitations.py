@@ -1,3 +1,4 @@
+import hashlib
 import unittest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -8,19 +9,28 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from postgrest.exceptions import APIError
 
-from app.Authentication.dependencies import AuthenticatedUser
+from app.Authentication.dependencies import (
+    AuthenticatedUser,
+    get_authenticated_user,
+)
 from app.LivestockRegistry.dao.farm_invitation_repository import (
     FarmInvitationDataAccessError,
     FarmInvitationRepository,
     PendingFarmInvitationExistsError,
 )
 from app.LivestockRegistry.dto.farm_invitation_schema import (
+    FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
+    FarmInvitationResponse,
 )
-from app.LivestockRegistry.router.farm_invitation_router import router
+from app.LivestockRegistry.router.farm_invitation_router import (
+    accept_router,
+    router,
+)
 from app.LivestockRegistry.services.farm_invitation_service import (
     FarmInvitationAlreadyExistsError,
+    FarmInvitationContactMismatchError,
     FarmInvitationService,
 )
 from app.LivestockRegistry.utils.farm_invitation_dependencies import (
@@ -93,6 +103,60 @@ class FarmInvitationServiceTests(unittest.TestCase):
                     expires_at=datetime.now(timezone.utc) + timedelta(days=7),
                 ),
             )
+
+    def test_accept_hashes_token_and_returns_accepted_invitation(self) -> None:
+        token = "one-time-token"
+        farm_id = uuid4()
+        inviter_membership_id = uuid4()
+        row = invitation_row(farm_id, inviter_membership_id)
+        accepted_row = {
+            **row,
+            "status": "accepted",
+            "accepted_at": datetime.now(timezone.utc).isoformat(),
+        }
+        repository = Mock(spec=FarmInvitationRepository)
+        repository.accept_by_token_hash.return_value = {
+            "result": "accepted",
+            "invitation": accepted_row,
+        }
+        service = FarmInvitationService(repository)
+
+        result = service.accept_invitation(
+            FarmInvitationAccept(invitation_token=token),
+        )
+
+        self.assertEqual(result.status, "accepted")
+        self.assertEqual(result.farm_id, farm_id)
+        repository.accept_by_token_hash.assert_called_once_with(
+            hashlib.sha256(token.encode("utf-8")).hexdigest()
+        )
+
+    def test_accept_maps_contact_mismatch_to_domain_error(self) -> None:
+        repository = Mock(spec=FarmInvitationRepository)
+        repository.accept_by_token_hash.return_value = {
+            "result": "contact_mismatch"
+        }
+        service = FarmInvitationService(repository)
+
+        with self.assertRaises(FarmInvitationContactMismatchError):
+            service.accept_invitation(
+                FarmInvitationAccept(invitation_token="one-time-token"),
+            )
+
+    def test_repository_accepts_token_hash_through_database_function(self) -> None:
+        client = Mock()
+        client.rpc.return_value.execute.return_value = SimpleNamespace(
+            data={"result": "not_found"}
+        )
+        repository = FarmInvitationRepository(client)
+
+        result = repository.accept_by_token_hash("token-hash")
+
+        self.assertEqual(result, {"result": "not_found"})
+        client.rpc.assert_called_once_with(
+            "accept_farm_invitation",
+            {"p_token_hash": "token-hash"},
+        )
 
 
 class FarmInvitationRepositoryTests(unittest.TestCase):
@@ -176,8 +240,12 @@ class FarmInvitationControllerTests(unittest.TestCase):
         self.service = Mock(spec=FarmInvitationService)
         self.app = FastAPI()
         self.app.include_router(router)
+        self.app.include_router(accept_router)
         self.app.dependency_overrides[get_authenticated_farm_user] = (
             lambda: self.context
+        )
+        self.app.dependency_overrides[get_authenticated_user] = (
+            lambda: self.context.authenticated_user
         )
         self.app.dependency_overrides[get_farm_invitation_service] = (
             lambda: self.service
@@ -282,3 +350,39 @@ class FarmInvitationControllerTests(unittest.TestCase):
             self.farm_id,
             invitation_id,
         )
+
+    def test_accept_invitation_uses_authenticated_user(self) -> None:
+        user_id = uuid4()
+        self.context = AuthenticatedFarmUser(
+            AuthenticatedUser(
+                SimpleNamespace(
+                    id=user_id,
+                    email="new-member@example.com",
+                    phone=None,
+                ),
+                "access-token",
+            ),
+            self.context.memberships,
+        )
+        invitation = FarmInvitationResponse.model_validate(
+            {
+                **invitation_row(self.farm_id, self.membership_id),
+                "status": "accepted",
+                "accepted_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        self.service.accept_invitation.return_value = invitation
+
+        response = self.client.post(
+            "/invitations/accept",
+            json={"invitation_token": "one-time-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "accepted")
+        call_args = self.service.accept_invitation.call_args.args
+        self.assertEqual(
+            call_args[0],
+            FarmInvitationAccept(invitation_token="one-time-token"),
+        )
+        self.assertEqual(len(call_args), 1)

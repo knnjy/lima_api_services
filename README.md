@@ -109,6 +109,30 @@ The shared authenticated farm context preserves each farm and role as a pair;
 it does not combine them into separate ID lists, which would lose the
 farm-to-role association.
 
+## Farm Invitation API
+
+Farm owners can create, list, and cancel invitations under
+`/farms/{farm_id}/invitations`. The create response includes a one-time
+`invitation_token`; send this token to the invitee and do not store or expose it
+again.
+
+An authenticated invitee accepts an invitation with
+`POST /invitations/accept`:
+
+```json
+{"invitation_token": "the-one-time-token"}
+```
+
+Acceptance requires the authenticated account's email or phone to match the
+invitation. A successful response contains the accepted invitation and creates
+the invitee's active farm membership. Apply
+[`resources/database/accept_farm_invitation.sql`](./resources/database/accept_farm_invitation.sql)
+to Supabase before using this endpoint; the function validates the token and
+JWT contact, then accepts the invitation and creates membership in one
+transaction. Invalid tokens return `404`, contact mismatches return `403`,
+expired or already-used invitations return `422`, and database errors return
+`503`.
+
 ## Farm API
 
 Farm CRUD uses `GET /farms` and `POST /farms`, plus

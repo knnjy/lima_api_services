@@ -53,6 +53,21 @@ class FarmInvitationRepository:
             raise FarmInvitationDataAccessError from exc
         return response.data[0] if response.data else None
 
+    def accept_by_token_hash(self, token_hash: str) -> dict[str, object]:
+        try:
+            response = self._client.rpc(
+                "accept_farm_invitation",
+                {"p_token_hash": token_hash},
+            ).execute()
+        except (APIError, httpx.HTTPError) as exc:
+            logger.exception("Farm invitation acceptance failed")
+            raise FarmInvitationDataAccessError from exc
+        if not isinstance(response.data, dict):
+            raise FarmInvitationDataAccessError(
+                "Farm invitation acceptance returned an invalid response"
+            )
+        return response.data
+
     def create(self, invitation_data: dict[str, object]) -> dict[str, object]:
         try:
             response = (
@@ -99,3 +114,4 @@ class FarmInvitationRepository:
             logger.exception("Farm invitation cancellation failed")
             raise FarmInvitationDataAccessError from exc
         return bool(response.data)
+

@@ -38,6 +38,10 @@ class FarmInvitationCreate(BaseModel):
         return self
 
 
+class FarmInvitationAccept(BaseModel):
+    invitation_token: str = Field(min_length=1)
+
+
 class FarmInvitationResponse(BaseModel):
     invitation_id: UUID
     farm_id: UUID

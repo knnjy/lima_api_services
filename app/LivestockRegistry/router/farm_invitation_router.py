@@ -13,6 +13,14 @@ router = APIRouter(
     tags=["farm-invitations"],
 )
 invitation_controller = FarmInvitationController()
+accept_router = APIRouter(prefix="/invitations", tags=["farm-invitations"])
+
+accept_router.add_api_route(
+    "/accept",
+    invitation_controller.accept_invitation,
+    methods=["POST"],
+    response_model=FarmInvitationResponse,
+)
 
 router.add_api_route(
     "",
@@ -33,3 +41,4 @@ router.add_api_route(
     methods=["POST"],
     status_code=status.HTTP_204_NO_CONTENT,
 )
+

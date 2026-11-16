@@ -8,6 +8,7 @@ from app.LivestockRegistry.dao.farm_invitation_repository import (
     FarmInvitationRepository,
 )
 from app.LivestockRegistry.dto.farm_invitation_schema import (
+    FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
     FarmInvitationResponse,
@@ -27,6 +28,10 @@ class FarmInvitationNotFoundError(Exception):
 
 
 class InvalidFarmInvitationStateError(Exception):
+    pass
+
+
+class FarmInvitationContactMismatchError(Exception):
     pass
 
 
@@ -79,6 +84,35 @@ class FarmInvitationService:
             raise FarmInvitationUnavailableError from exc
         if not cancelled:
             raise FarmInvitationNotFoundError
+
+    def accept_invitation(
+        self,
+        invitation: FarmInvitationAccept,
+    ) -> FarmInvitationResponse:
+        token_hash = hashlib.sha256(
+            invitation.invitation_token.encode("utf-8")
+        ).hexdigest()
+        try:
+            result = self._repository.accept_by_token_hash(token_hash)
+        except FarmInvitationDataAccessError as exc:
+            raise FarmInvitationUnavailableError from exc
+
+        result_status = result.get("result")
+        if result_status == "not_found":
+            raise FarmInvitationNotFoundError
+        if result_status == "contact_mismatch":
+            raise FarmInvitationContactMismatchError
+        if result_status in ("expired", "invalid_state"):
+            raise InvalidFarmInvitationStateError(
+                "Farm invitation is expired or no longer pending"
+            )
+
+        accepted_invitation = result.get("invitation")
+        if result_status != "accepted" or not isinstance(accepted_invitation, dict):
+            raise FarmInvitationUnavailableError(
+                "Farm invitation acceptance returned an invalid response"
+            )
+        return FarmInvitationResponse.model_validate(accepted_invitation)
 
     def _get_row(
         self,
