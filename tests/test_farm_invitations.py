@@ -31,8 +31,10 @@ from app.LivestockRegistry.router.farm_invitation_router import (
 from app.LivestockRegistry.services.farm_invitation_service import (
     FarmInvitationAlreadyExistsError,
     FarmInvitationContactMismatchError,
+    FarmInvitationUnavailableError,
     FarmInvitationService,
 )
+from app.common.services.email_service import EmailDeliveryError, EmailService
 from app.LivestockRegistry.utils.farm_invitation_dependencies import (
     get_farm_invitation_service,
 )
@@ -69,7 +71,10 @@ class FarmInvitationServiceTests(unittest.TestCase):
             **invitation_row(farm_id, membership_id),
             **data,
         }
-        service = FarmInvitationService(repository)
+        email_service = Mock(spec=EmailService)
+        email_service.frontend_url = "https://lima.example"
+        email_service.send_email.return_value = "brevo-message-123"
+        service = FarmInvitationService(repository, email_service)
 
         result = service.create_invitation(
             farm_id,
@@ -87,6 +92,44 @@ class FarmInvitationServiceTests(unittest.TestCase):
         self.assertNotEqual(stored_data["token_hash"], result.invitation_token)
         self.assertEqual(stored_data["invited_by"], str(membership_id))
         self.assertEqual(stored_data["farm_id"], str(farm_id))
+        self.assertEqual(result.email_delivery_status, "accepted_by_provider")
+        self.assertEqual(result.email_message_id, "brevo-message-123")
+        email_service.send_email.assert_called_once()
+        email_args = email_service.send_email.call_args.args
+        self.assertEqual(email_args[0], "new-member@example.com")
+        self.assertIn("role ID", email_args[2])
+        self.assertIn(result.invitation_token, email_args[3])
+
+    def test_create_cancels_invitation_when_email_delivery_fails(self) -> None:
+        farm_id = uuid4()
+        membership_id = uuid4()
+        repository = Mock(spec=FarmInvitationRepository)
+        created_row = invitation_row(farm_id, membership_id)
+        repository.create.side_effect = lambda data: {
+            **created_row,
+            **data,
+        }
+        repository.cancel.return_value = True
+        email_service = Mock(spec=EmailService)
+        email_service.frontend_url = "https://lima.example"
+        email_service.send_email.side_effect = EmailDeliveryError
+        service = FarmInvitationService(repository, email_service)
+
+        with self.assertRaises(FarmInvitationUnavailableError):
+            service.create_invitation(
+                farm_id,
+                str(membership_id),
+                FarmInvitationCreate(
+                    role_id=2,
+                    email="new-member@example.com",
+                    expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                ),
+            )
+
+        repository.cancel.assert_called_once_with(
+            str(farm_id),
+            created_row["invitation_id"],
+        )
 
     def test_create_maps_duplicate_phone_to_domain_error(self) -> None:
         repository = Mock()

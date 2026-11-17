@@ -66,7 +66,9 @@ with typed `{farm_id, role_id}` membership pairs for other protected endpoints.
 
 Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `app/.env` or in the
 process environment. Do not use a Supabase `service_role` key for user sign-in
-or token verification.
+or token verification. Email invitations require `BREVO_API_KEY`, `EMAIL_FROM`,
+and `FRONTEND_URL` in the repository-root `.env` or process environment. The
+sender address in `EMAIL_FROM` must be verified in Brevo.
 
 ## Authentication API
 
@@ -113,8 +115,13 @@ farm-to-role association.
 
 Farm owners can create, list, and cancel invitations under
 `/farms/{farm_id}/invitations`. The create response includes a one-time
-`invitation_token`; send this token to the invitee and do not store or expose it
-again.
+`invitation_token`. For invitations with an email address, the service sends an
+email with the token and assigned role ID; phone-only invitations still require
+the caller to deliver the token. The response includes
+`email_delivery_status` (`accepted_by_provider` or `not_requested`) and, when
+accepted by Brevo, `email_message_id` for lookup in Brevo's transactional logs.
+Provider acceptance does not confirm inbox delivery. The token is stored only
+as a hash.
 
 An authenticated invitee accepts an invitation with
 `POST /invitations/accept`:

@@ -11,6 +11,7 @@ InvitationStatus = Literal[
     "expired",
     "cancelled",
 ]
+InvitationEmailStatus = Literal["not_requested", "accepted_by_provider"]
 
 
 class FarmInvitationCreate(BaseModel):
@@ -58,5 +59,7 @@ class FarmInvitationResponse(BaseModel):
 
 
 class FarmInvitationCreatedResponse(FarmInvitationResponse):
-    # Returned once to the caller so it can construct and deliver the invite link.
+    # Provider acceptance is not a guarantee of inbox delivery.
     invitation_token: str
+    email_delivery_status: InvitationEmailStatus = "not_requested"
+    email_message_id: str | None = None

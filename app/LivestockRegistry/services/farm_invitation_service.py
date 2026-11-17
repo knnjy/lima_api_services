@@ -1,7 +1,9 @@
 import hashlib
 import secrets
+from html import escape
 from uuid import UUID
 
+from app.common.services.email_service import EmailDeliveryError, EmailService
 from app.LivestockRegistry.dao.farm_invitation_repository import (
     FarmInvitationDataAccessError,
     PendingFarmInvitationExistsError,
@@ -36,8 +38,13 @@ class FarmInvitationContactMismatchError(Exception):
 
 
 class FarmInvitationService:
-    def __init__(self, repository: FarmInvitationRepository) -> None:
+    def __init__(
+        self,
+        repository: FarmInvitationRepository,
+        email_service: EmailService | None = None,
+    ) -> None:
         self._repository = repository
+        self._email_service = email_service
 
     def list_invitations(self, farm_id: UUID) -> list[FarmInvitationResponse]:
         try:
@@ -52,6 +59,14 @@ class FarmInvitationService:
         invited_by: str,
         invitation: FarmInvitationCreate,
     ) -> FarmInvitationCreatedResponse:
+        email_service = None
+        if invitation.email:
+            email_service = self._email_service or EmailService()
+            if not email_service.frontend_url:
+                raise FarmInvitationUnavailableError(
+                    "FRONTEND_URL is required to send invitation emails"
+                )
+
         token = secrets.token_urlsafe(32)
         invitation_data = invitation.model_dump(mode="json")
         invitation_data.update(
@@ -68,9 +83,63 @@ class FarmInvitationService:
             raise FarmInvitationAlreadyExistsError from exc
         except FarmInvitationDataAccessError as exc:
             raise FarmInvitationUnavailableError from exc
-        return FarmInvitationCreatedResponse.model_validate(
+        created_invitation = FarmInvitationCreatedResponse.model_validate(
             {**row, "invitation_token": token}
         )
+        if email_service and invitation.email:
+            frontend_url = escape(email_service.frontend_url, quote=True)
+            farm_id_text = escape(str(farm_id))
+            token_text = escape(token)
+            role_id_text = str(invitation.role_id)
+            html = (
+                "<p>A farm owner has invited you to join a farm.</p>"
+                f"<p>Farm ID: <strong>{farm_id_text}</strong></p>"
+                f"<p>Assigned role ID: <strong>{role_id_text}</strong></p>"
+                f'<p><a href="{frontend_url}">Open LiMa</a>, then sign in or '
+                "create an account to accept the invitation.</p>"
+                f"<p>Your invitation token: <strong>{token_text}</strong></p>"
+            )
+            text = (
+                "A farm owner has invited you to join a farm.\n"
+                f"Farm ID: {farm_id}\n"
+                f"Assigned role ID: {invitation.role_id}\n"
+                f"Open LiMa at {email_service.frontend_url}, then sign in or "
+                "create an account to accept the invitation.\n"
+                f"Your invitation token: {token}"
+            )
+            try:
+                email_message_id = email_service.send_email(
+                    invitation.email,
+                    "You are invited to join a farm",
+                    html,
+                    text,
+                )
+            except EmailDeliveryError as exc:
+                try:
+                    cancelled = self._repository.cancel(
+                        str(farm_id), str(created_invitation.invitation_id)
+                    )
+                except FarmInvitationDataAccessError as cancel_exc:
+                    raise FarmInvitationUnavailableError(
+                        "Invitation email failed and the pending invitation "
+                        "could not be cancelled"
+                    ) from cancel_exc
+                if not cancelled:
+                    raise FarmInvitationUnavailableError(
+                        "Invitation email failed and the pending invitation "
+                        "remains active"
+                    ) from exc
+                raise FarmInvitationUnavailableError(
+                    "Invitation email could not be sent; the invitation was "
+                    "cancelled"
+                ) from exc
+            created_invitation = created_invitation.model_copy(
+                update={
+                    "email_delivery_status": "accepted_by_provider",
+                    "email_message_id": email_message_id,
+                }
+            )
+        return created_invitation
 
     def cancel_invitation(self, farm_id: UUID, invitation_id: UUID) -> None:
         current = self._get_row(farm_id, invitation_id)
