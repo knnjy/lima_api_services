@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, status
 
 from app.Authentication.dependencies import AuthenticatedUser, get_authenticated_user
-from app.LivestockRegistry.membership_dependencies import (
+from app.LivestockRegistry.utils.membership_dependencies import (
     get_farm_membership_service,
 )
 from app.LivestockRegistry.services.farm_membership_service import (
@@ -16,6 +16,7 @@ from app.LivestockRegistry.services.farm_membership_service import (
 class FarmRoleMembership:
     farm_id: str
     role_id: str
+    membership_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ def get_authenticated_farm_user(
         FarmRoleMembership(
             farm_id=str(row["farm_id"]),
             role_id=str(row["role_id"]),
+            membership_id=str(row["id"]) if row.get("id") is not None else None,
         )
         for row in rows
     ]

@@ -10,6 +10,7 @@ from app.Authentication.controllers import auth_controller
 from app.Authentication.services.supabase_auth_service import (
     InvalidCredentialsError,
     InvalidAccessTokenError,
+    InvalidRefreshTokenError,
     SupabaseAuthService,
     SupabaseAuthUnavailableError,
 )
@@ -54,6 +55,25 @@ class SupabaseAuthServiceTests(unittest.TestCase):
                 "user@example.com",
                 "correct-password",
             )
+
+    def test_refresh_session_uses_refresh_token(self) -> None:
+        auth_response = object()
+        client = Mock()
+        client.auth.refresh_session.return_value = auth_response
+
+        result = SupabaseAuthService(client).refresh_session("refresh-token")
+
+        self.assertIs(result, auth_response)
+        client.auth.refresh_session.assert_called_once_with("refresh-token")
+
+    def test_invalid_refresh_token_is_reported(self) -> None:
+        client = Mock()
+        client.auth.refresh_session.side_effect = AuthApiError(
+            "invalid refresh token", 400, None
+        )
+
+        with self.assertRaises(InvalidRefreshTokenError):
+            SupabaseAuthService(client).refresh_session("expired-refresh-token")
 
     def test_valid_token_returns_supabase_user(self) -> None:
         user = object()
@@ -147,6 +167,43 @@ class AuthenticationControllerTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 503)
+
+    def test_refresh_returns_replacement_tokens(self) -> None:
+        service = Mock()
+        service.refresh_session.return_value = SimpleNamespace(
+            user=SimpleNamespace(id="user-123", email="user@example.com"),
+            session=SimpleNamespace(
+                access_token="new-access-token",
+                refresh_token="new-refresh-token",
+                token_type="bearer",
+                expires_in=3600,
+            ),
+        )
+        with patch.object(
+            auth_controller, "get_supabase_auth_service", return_value=service
+        ):
+            response = self.client.post(
+                "/auth/refresh",
+                json={"refresh_token": "old-refresh-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["access_token"], "new-access-token")
+        self.assertEqual(response.json()["refresh_token"], "new-refresh-token")
+        service.refresh_session.assert_called_once_with("old-refresh-token")
+
+    def test_refresh_rejects_invalid_refresh_token(self) -> None:
+        service = Mock()
+        service.refresh_session.side_effect = InvalidRefreshTokenError
+        with patch.object(
+            auth_controller, "get_supabase_auth_service", return_value=service
+        ):
+            response = self.client.post(
+                "/auth/refresh",
+                json={"refresh_token": "expired-refresh-token"},
+            )
+
+        self.assertEqual(response.status_code, 401)
 
     def test_sign_in_rejects_empty_credentials(self) -> None:
         with patch.object(
