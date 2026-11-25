@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from gotrue.errors import AuthApiError
+from supabase_auth.errors import AuthApiError
 
 from app.Authentication.controllers import auth_controller
 from app.Authentication.services.supabase_auth_service import (
@@ -91,6 +91,17 @@ class SupabaseAuthServiceTests(unittest.TestCase):
 
         with self.assertRaises(InvalidAccessTokenError):
             SupabaseAuthService(client).get_user_from_access_token("bad-token")
+
+    def test_missing_session_is_reported_as_invalid_token(self) -> None:
+        client = Mock()
+        client.auth.get_user.side_effect = AuthApiError(
+            "Session from session_id claim in JWT does not exist",
+            404,
+            "session_not_found",
+        )
+
+        with self.assertRaises(InvalidAccessTokenError):
+            SupabaseAuthService(client).get_user_from_access_token("stale-token")
 
     def test_provider_failure_is_reported(self) -> None:
         client = Mock()

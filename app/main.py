@@ -1,4 +1,10 @@
+import os
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.Authentication import router as authentication_router
 from app.IdentityAndAccess.router.profile_router import router as profile_router
@@ -12,7 +18,26 @@ from app.LivestockRegistry.router.farm_invitation_router import (
     router as farm_invitation_router,
 )
 
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+frontend_url = os.getenv("FRONTEND_URL", "").strip()
+if frontend_url:
+    parsed_frontend_url = urlsplit(frontend_url)
+    if (
+        parsed_frontend_url.scheme not in ("http", "https")
+        or not parsed_frontend_url.netloc
+    ):
+        raise RuntimeError("FRONTEND_URL must be an absolute HTTP(S) URL")
+    frontend_origin = f"{parsed_frontend_url.scheme}://{parsed_frontend_url.netloc}"
+else:
+    frontend_origin = None
+
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[frontend_origin] if frontend_origin else [],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.include_router(authentication_router)
 app.include_router(profile_router)
 app.include_router(farm_crud_router)

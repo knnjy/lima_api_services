@@ -1,7 +1,7 @@
 import httpx
-from gotrue.errors import AuthApiError, AuthError
 from gotrue.types import AuthResponse, User
 from supabase import Client
+from supabase_auth.errors import AuthApiError, AuthError
 
 
 class InvalidCredentialsError(Exception):
@@ -50,7 +50,7 @@ class SupabaseAuthService:
         try:
             response = self._client.auth.get_user(access_token)
         except AuthApiError as exc:
-            if exc.status in (400, 401, 403):
+            if exc.status in (400, 401, 403) or exc.code == "session_not_found":
                 raise InvalidAccessTokenError from exc
             raise SupabaseAuthUnavailableError from exc
         except (AuthError, httpx.HTTPError) as exc:
