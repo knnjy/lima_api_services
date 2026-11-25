@@ -69,6 +69,8 @@ process environment. Do not use a Supabase `service_role` key for user sign-in
 or token verification. Email invitations require `BREVO_API_KEY`, `EMAIL_FROM`,
 and `FRONTEND_URL` in the repository-root `.env` or process environment. The
 sender address in `EMAIL_FROM` must be verified in Brevo.
+Browser requests are allowed only from the origin derived from `FRONTEND_URL`;
+its scheme, hostname, and port must match the browser's `Origin` header.
 
 ## Authentication API
 

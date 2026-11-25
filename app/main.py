@@ -35,8 +35,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[frontend_origin] if frontend_origin else [],
-    allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(authentication_router)
 app.include_router(profile_router)

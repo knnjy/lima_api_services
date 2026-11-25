@@ -35,6 +35,28 @@ class CorsTests(unittest.TestCase):
             response.headers["access-control-allow-headers"].lower(),
         )
 
+    def test_preflight_allows_requested_method_and_custom_headers(self) -> None:
+        assert frontend_origin is not None
+        response = self.client.options(
+            "/farms",
+            headers={
+                "Origin": frontend_origin,
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": "x-client-version",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            frontend_origin,
+        )
+        self.assertIn("PUT", response.headers["access-control-allow-methods"])
+        self.assertIn(
+            "x-client-version",
+            response.headers["access-control-allow-headers"].lower(),
+        )
+
     def test_unconfigured_origin_is_not_allowed(self) -> None:
         response = self.client.options(
             "/farms",
