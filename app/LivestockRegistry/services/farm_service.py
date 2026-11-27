@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from app.common.dependencies.farm_access import FarmRoleMembership
 from app.LivestockRegistry.dao.farm_membership_repository import (
     FarmMembershipDataAccessError,
     FarmMembershipRepository,
@@ -10,11 +11,21 @@ from app.LivestockRegistry.dao.farm_repository import (
     FarmRepository,
 )
 from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
-from app.LivestockRegistry.dto.farm_schema import FarmCreate, FarmResponse, FarmUpdate
+from app.LivestockRegistry.dto.farm_schema import (
+    FarmCreate,
+    FarmListItem,
+    FarmListResponse,
+    FarmLocation,
+    FarmMembershipRole,
+    FarmResponse,
+    FarmUpdate,
+)
 from app.LivestockRegistry.errors import FarmNotFoundError
 
 
 OWNER_ROLE_ID = "1"
+FARM_LIST_PAGE_SIZE = 10
+FARM_ROLE_NAMES = {1: "Owner", 2: "Worker"}
 
 
 class FarmUnavailableError(Exception):
@@ -38,12 +49,62 @@ class FarmService:
         self._farm_repository = farm_repository
         self._membership_repository = membership_repository
 
-    def list_farms(self, farm_ids: list[str]) -> list[FarmResponse]:
+    def list_farms(
+        self, memberships: list[FarmRoleMembership]
+    ) -> FarmListResponse:
+        membership_by_farm_id = {
+            membership.farm_id: membership for membership in memberships
+        }
         try:
-            rows = self._farm_repository.list_by_ids(farm_ids)
+            rows = self._farm_repository.list_by_ids(
+                list(membership_by_farm_id)
+            )
         except FarmDataAccessError as exc:
             raise FarmUnavailableError from exc
-        return [FarmResponse.model_validate(row) for row in rows]
+
+        items = []
+        for row in rows[:FARM_LIST_PAGE_SIZE]:
+            membership = membership_by_farm_id[str(row["farm_id"])]
+            role_id = int(membership.role_id)
+            try:
+                role_name = FARM_ROLE_NAMES[role_id]
+            except KeyError as exc:
+                raise ValueError(f"Unsupported farm role ID: {role_id}") from exc
+            if membership.membership_id is None:
+                raise ValueError(
+                    f"Membership ID is missing for farm {membership.farm_id}"
+                )
+
+            items.append(
+                FarmListItem(
+                    farm_id=row["farm_id"],
+                    farm_name=row["farm_name"],
+                    location=FarmLocation(
+                        province=row["province"],
+                        city_municipality=row["city_municipality"],
+                        address_line=row.get("address_line"),
+                    ),
+                    role=FarmMembershipRole(
+                        membership_id=membership.membership_id,
+                        role_id=role_id,
+                        role_name=role_name,
+                    ),
+                )
+            )
+
+        total = len(rows)
+        total_pages = (
+            (total + FARM_LIST_PAGE_SIZE - 1) // FARM_LIST_PAGE_SIZE
+        )
+        return FarmListResponse(
+            data=items,
+            meta={
+                "page": 1,
+                "page_size": FARM_LIST_PAGE_SIZE,
+                "total": total,
+                "total_pages": total_pages,
+            },
+        )
 
     def get_farm(self, farm_id: UUID, farm_ids: list[str]) -> FarmResponse:
         self._require_membership(str(farm_id), farm_ids)

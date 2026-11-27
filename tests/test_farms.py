@@ -14,7 +14,12 @@ from app.LivestockRegistry.dao.farm_membership_repository import (
 )
 from app.LivestockRegistry.dao.farm_repository import FarmAuthError, FarmRepository
 from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
-from app.LivestockRegistry.dto.farm_schema import FarmCreate, FarmResponse, FarmUpdate
+from app.LivestockRegistry.dto.farm_schema import (
+    FarmCreate,
+    FarmListResponse,
+    FarmResponse,
+    FarmUpdate,
+)
 from app.LivestockRegistry.errors import FarmNotFoundError
 from app.LivestockRegistry.router.farm_router import router
 from app.LivestockRegistry.services.farm_service import (
@@ -79,6 +84,62 @@ class FarmServiceTests(unittest.TestCase):
                 farm_id=farm_id,
                 role_id=1,
             )
+        )
+
+    def test_list_farms_returns_nested_items_and_fixed_page_metadata(self) -> None:
+        user_id = uuid4()
+        farm_ids = [uuid4() for _ in range(21)]
+        membership_ids = [uuid4() for _ in farm_ids]
+        farm_repository = Mock(spec=FarmRepository)
+        farm_repository.list_by_ids.return_value = [
+            farm_row(farm_id, user_id) for farm_id in farm_ids
+        ]
+        service = FarmService(
+            farm_repository,
+            Mock(spec=FarmMembershipRepository),
+        )
+        memberships = [
+            FarmRoleMembership(str(farm_id), "1", str(membership_ids[0]))
+            if index == 0
+            else FarmRoleMembership(
+                str(farm_id), "2", str(membership_ids[index])
+            )
+            for index, farm_id in enumerate(farm_ids)
+        ]
+
+        result = service.list_farms(memberships)
+
+        self.assertEqual(len(result.data), 20)
+        self.assertEqual(
+            result.meta.model_dump(),
+            {"page": 1, "page_size": 20, "total": 21, "total_pages": 2},
+        )
+        first_item = result.data[0]
+        self.assertEqual(first_item.farm_id, farm_ids[0])
+        self.assertEqual(first_item.location.province, "Province")
+        self.assertEqual(first_item.location.address_line, None)
+        self.assertEqual(first_item.role.membership_id, membership_ids[0])
+        self.assertEqual(first_item.role.role_id, 1)
+        self.assertEqual(first_item.role.role_name, "Owner")
+        self.assertEqual(result.data[1].role.role_name, "Worker")
+        farm_repository.list_by_ids.assert_called_once_with(
+            [str(farm_id) for farm_id in farm_ids]
+        )
+
+    def test_list_farms_empty_result_has_zero_page_count(self) -> None:
+        farm_repository = Mock(spec=FarmRepository)
+        farm_repository.list_by_ids.return_value = []
+        service = FarmService(
+            farm_repository,
+            Mock(spec=FarmMembershipRepository),
+        )
+
+        result = service.list_farms([])
+
+        self.assertEqual(result.data, [])
+        self.assertEqual(
+            result.meta.model_dump(),
+            {"page": 1, "page_size": 20, "total": 0, "total_pages": 0},
         )
 
     def test_get_farm_rejects_non_member(self) -> None:
@@ -162,13 +223,27 @@ class FarmControllerTests(unittest.TestCase):
         self.app.dependency_overrides.clear()
 
     def test_list_farms(self) -> None:
-        self.service.list_farms.return_value = []
+        self.service.list_farms.return_value = FarmListResponse(
+            data=[],
+            meta={"page": 1, "page_size": 20, "total": 0, "total_pages": 0},
+        )
 
         response = self.client.get("/farms")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), [])
-        self.service.list_farms.assert_called_once_with([str(self.farm_id)])
+        self.assertEqual(
+            response.json(),
+            {
+                "data": [],
+                "meta": {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 0,
+                    "total_pages": 0,
+                },
+            },
+        )
+        self.service.list_farms.assert_called_once_with(self.context.memberships)
 
     def test_create_farm(self) -> None:
         row = farm_row(self.farm_id, self.user_id)

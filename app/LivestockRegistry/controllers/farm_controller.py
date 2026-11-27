@@ -2,7 +2,12 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Response, status
 
-from app.LivestockRegistry.dto.farm_schema import FarmCreate, FarmResponse, FarmUpdate
+from app.LivestockRegistry.dto.farm_schema import (
+    FarmCreate,
+    FarmListResponse,
+    FarmResponse,
+    FarmUpdate,
+)
 from app.LivestockRegistry.services.farm_service import (
     FarmAccessDeniedError,
     FarmCreationRollbackError,
@@ -22,9 +27,9 @@ class FarmController:
         self,
         context: AuthenticatedFarmUser = Depends(get_authenticated_farm_user),
         farm_service: FarmService = Depends(get_farm_service),
-    ) -> list[FarmResponse]:
+    ) -> FarmListResponse:
         try:
-            return farm_service.list_farms(self._farm_ids(context))
+            return farm_service.list_farms(context.memberships)
         except FarmUnavailableError as exc:
             raise self._unavailable_error() from exc
 

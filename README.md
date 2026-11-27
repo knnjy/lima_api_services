@@ -149,3 +149,7 @@ on farms where the user has an active membership. Creating a farm assigns the
 authenticated user as its creator and creates an owner membership. Only an
 owner (`role_id = 1`) may update or delete a farm; workers receive `403` for
 those operations.
+
+`GET /farms` returns the first 20 accessible farms in a `data` array, with each
+farm's location and the signed-in user's membership role nested in the item.
+The `meta` object includes `page`, `page_size`, `total`, and `total_pages`.
