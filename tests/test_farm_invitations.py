@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -63,6 +63,20 @@ def invitation_row(farm_id, membership_id):
 
 
 class FarmInvitationServiceTests(unittest.TestCase):
+    def test_list_received_invitations_uses_normalized_email(self) -> None:
+        farm_id = uuid4()
+        membership_id = uuid4()
+        row = invitation_row(farm_id, membership_id)
+        repository = Mock(spec=FarmInvitationRepository)
+        repository.list_by_email.return_value = [row]
+        service = FarmInvitationService(repository)
+
+        result = service.list_received_invitations(" New-Member@Example.com ")
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].invitation_id, UUID(row["invitation_id"]))
+        repository.list_by_email.assert_called_once_with("new-member@example.com")
+
     def test_create_generates_token_and_stores_only_hash(self) -> None:
         farm_id = uuid4()
         membership_id = uuid4()
@@ -203,6 +217,52 @@ class FarmInvitationServiceTests(unittest.TestCase):
 
 
 class FarmInvitationRepositoryTests(unittest.TestCase):
+    def test_list_by_email_resolves_sender_email_from_membership(self) -> None:
+        client = Mock()
+        farm_id = uuid4()
+        membership_id = uuid4()
+        user_id = uuid4()
+        invitation = invitation_row(farm_id, membership_id)
+        invitation_table = Mock()
+        membership_table = Mock()
+        profile_table = Mock()
+        client.table.side_effect = {
+            "farm_invitation": invitation_table,
+            "farm_membership": membership_table,
+            "profile": profile_table,
+        }.get
+        (
+            invitation_table.select.return_value.eq.return_value.order
+            .return_value.execute.return_value
+        ) = SimpleNamespace(data=[invitation])
+        membership_table.select.return_value.in_.return_value.execute.return_value = (
+            SimpleNamespace(
+                data=[{"id": str(membership_id), "user_id": str(user_id)}]
+            )
+        )
+        profile_table.select.return_value.in_.return_value.execute.return_value = (
+            SimpleNamespace(
+                data=[{"user_id": str(user_id), "email": "owner@example.com"}]
+            )
+        )
+        repository = FarmInvitationRepository(client)
+
+        result = repository.list_by_email("member@example.com")
+
+        self.assertEqual(result[0]["invited_by_email"], "owner@example.com")
+        invitation_table.select.return_value.eq.assert_called_once_with(
+            "email",
+            "member@example.com",
+        )
+        membership_table.select.return_value.in_.assert_called_once_with(
+            "id",
+            [str(membership_id)],
+        )
+        profile_table.select.return_value.in_.assert_called_once_with(
+            "user_id",
+            [str(user_id)],
+        )
+
     def test_create_maps_pending_phone_unique_violation(self) -> None:
         client = Mock()
         client.table.return_value.insert.return_value.select.return_value.execute.side_effect = (
@@ -271,7 +331,10 @@ class FarmInvitationControllerTests(unittest.TestCase):
         self.farm_id = uuid4()
         self.membership_id = uuid4()
         self.context = AuthenticatedFarmUser(
-            AuthenticatedUser(SimpleNamespace(id=uuid4()), "access-token"),
+            AuthenticatedUser(
+                SimpleNamespace(id=uuid4(), email=None),
+                "access-token",
+            ),
             [
                 FarmRoleMembership(
                     str(self.farm_id),
@@ -297,6 +360,31 @@ class FarmInvitationControllerTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.app.dependency_overrides.clear()
+
+    def test_list_received_invitations_uses_authenticated_email(self) -> None:
+        user = AuthenticatedUser(
+            SimpleNamespace(id=uuid4(), email="member@example.com"),
+            "access-token",
+        )
+        self.context = AuthenticatedFarmUser(user, self.context.memberships)
+        row = FarmInvitationResponse.model_validate(
+            invitation_row(self.farm_id, self.membership_id)
+        )
+        self.service.list_received_invitations.return_value = [row]
+
+        response = self.client.get("/invitations")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        self.service.list_received_invitations.assert_called_once_with(
+            "member@example.com"
+        )
+
+    def test_list_received_invitations_requires_authenticated_email(self) -> None:
+        response = self.client.get("/invitations")
+
+        self.assertEqual(response.status_code, 403)
+        self.service.list_received_invitations.assert_not_called()
 
     def test_create_invitation_uses_owner_membership_id(self) -> None:
         row = invitation_row(self.farm_id, self.membership_id)

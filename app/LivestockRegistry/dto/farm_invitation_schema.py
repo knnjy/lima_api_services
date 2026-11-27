@@ -48,6 +48,7 @@ class FarmInvitationResponse(BaseModel):
     farm_id: UUID
     role_id: int
     invited_by: UUID
+    invited_by_email: str | None = None
     email: str | None
     phone: str | None
     status: InvitationStatus
@@ -63,3 +64,16 @@ class FarmInvitationCreatedResponse(FarmInvitationResponse):
     invitation_token: str
     email_delivery_status: InvitationEmailStatus = "not_requested"
     email_message_id: str | None = None
+
+
+class CreatedInvitationResponse(BaseModel):
+    invitation_id: UUID
+    farm_id: UUID
+    role_id: int
+    invited_by: UUID
+    email: str | None
+    phone: str | None
+    status: InvitationStatus
+    expires_at: datetime
+    created_at: datetime
+    accepted_at: datetime | None

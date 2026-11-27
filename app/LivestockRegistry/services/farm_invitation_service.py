@@ -10,6 +10,7 @@ from app.LivestockRegistry.dao.farm_invitation_repository import (
     FarmInvitationRepository,
 )
 from app.LivestockRegistry.dto.farm_invitation_schema import (
+    CreatedInvitationResponse,
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
@@ -46,9 +47,19 @@ class FarmInvitationService:
         self._repository = repository
         self._email_service = email_service
 
-    def list_invitations(self, farm_id: UUID) -> list[FarmInvitationResponse]:
+    def list_invitations(self, farm_id: UUID) -> list[CreatedInvitationResponse]:
         try:
             rows = self._repository.list_by_farm(str(farm_id))
+        except FarmInvitationDataAccessError as exc:
+            raise FarmInvitationUnavailableError from exc
+        return [FarmInvitationResponse.model_validate(row) for row in rows]
+
+    def list_received_invitations(
+        self,
+        email: str,
+    ) -> list[FarmInvitationResponse]:
+        try:
+            rows = self._repository.list_by_email(email.strip().lower())
         except FarmInvitationDataAccessError as exc:
             raise FarmInvitationUnavailableError from exc
         return [FarmInvitationResponse.model_validate(row) for row in rows]

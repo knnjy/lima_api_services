@@ -4,6 +4,7 @@ from app.LivestockRegistry.controllers.farm_invitation_controller import (
     FarmInvitationController,
 )
 from app.LivestockRegistry.dto.farm_invitation_schema import (
+    CreatedInvitationResponse,
     FarmInvitationCreatedResponse,
     FarmInvitationResponse,
 )
@@ -16,6 +17,13 @@ invitation_controller = FarmInvitationController()
 accept_router = APIRouter(prefix="/invitations", tags=["farm-invitations"])
 
 accept_router.add_api_route(
+    "",
+    invitation_controller.list_received_invitations,
+    methods=["GET"],
+    response_model=list[FarmInvitationResponse],
+)
+
+accept_router.add_api_route(
     "/accept",
     invitation_controller.accept_invitation,
     methods=["POST"],
@@ -26,7 +34,7 @@ router.add_api_route(
     "",
     invitation_controller.list_invitations,
     methods=["GET"],
-    response_model=list[FarmInvitationResponse],
+    response_model=list[CreatedInvitationResponse],
 )
 router.add_api_route(
     "",

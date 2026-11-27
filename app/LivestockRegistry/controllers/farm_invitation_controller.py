@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, Response, status
 
 from app.Authentication.dependencies import AuthenticatedUser, get_authenticated_user
 from app.LivestockRegistry.dto.farm_invitation_schema import (
+    CreatedInvitationResponse,
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
@@ -28,6 +29,24 @@ from app.common.dependencies.farm_access import (
 
 
 class FarmInvitationController:
+    def list_received_invitations(
+        self,
+        authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
+        invitation_service: FarmInvitationService = Depends(
+            get_farm_invitation_service
+        ),
+    ) -> list[FarmInvitationResponse]:
+        email = authenticated_user.user.email
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authenticated user does not have an email address",
+            )
+        try:
+            return invitation_service.list_received_invitations(email)
+        except FarmInvitationUnavailableError as exc:
+            raise self._unavailable_error() from exc
+
     def accept_invitation(
         self,
         invitation: FarmInvitationAccept,
@@ -60,7 +79,7 @@ class FarmInvitationController:
         invitation_service: FarmInvitationService = Depends(
             get_farm_invitation_service
         ),
-    ) -> list[FarmInvitationResponse]:
+    ) -> list[CreatedInvitationResponse]:
         self._require_owner(context, farm_id)
         try:
             return invitation_service.list_invitations(farm_id)
