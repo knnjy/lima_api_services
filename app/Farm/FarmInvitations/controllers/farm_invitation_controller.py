@@ -8,6 +8,7 @@ from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
+    FarmInvitationListResponse,
     FarmInvitationResponse,
 )
 from app.Farm.FarmInvitations.services.farm_invitation_service import (
@@ -35,7 +36,7 @@ class FarmInvitationController:
         invitation_service: FarmInvitationService = Depends(
             get_farm_invitation_service
         ),
-    ) -> list[FarmInvitationResponse]:
+    ) -> FarmInvitationListResponse:
         email = authenticated_user.user.email
         if not email:
             raise HTTPException(

@@ -48,6 +48,17 @@ class FarmInvitationRepository:
             raise FarmInvitationDataAccessError from exc
         return response.data
 
+    def get_farm_name(self, farm_id: str) -> str | None:
+        try:
+            response = self._client.rpc(
+                "get_invited_farm_name",
+                {"p_farm_id": farm_id},
+            ).execute()
+        except (APIError, httpx.HTTPError) as exc:
+            logger.exception("Farm name lookup failed")
+            raise FarmInvitationDataAccessError from exc
+        return response.data[0]["farm_name"] if response.data else None
+
     def get_by_id(
         self,
         farm_id: str,

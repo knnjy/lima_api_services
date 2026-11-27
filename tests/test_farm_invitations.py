@@ -22,6 +22,7 @@ from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
+    FarmInvitationListResponse,
     FarmInvitationResponse,
 )
 from app.Farm.FarmInvitations.router.farm_invitation_router import (
@@ -50,7 +51,9 @@ def invitation_row(farm_id, membership_id):
     return {
         "invitation_id": str(uuid4()),
         "farm_id": str(farm_id),
+        "farm_name": "Green Farm",
         "role_id": 2,
+        "role": "Worker",
         "invited_by": str(membership_id),
         "email": "new-member@example.com",
         "phone": None,
@@ -69,13 +72,20 @@ class FarmInvitationServiceTests(unittest.TestCase):
         row = invitation_row(farm_id, membership_id)
         repository = Mock(spec=FarmInvitationRepository)
         repository.list_by_email.return_value = [row]
+        repository.get_farm_name.return_value = "Green Farm"
         service = FarmInvitationService(repository)
 
         result = service.list_received_invitations(" New-Member@Example.com ")
 
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].invitation_id, UUID(row["invitation_id"]))
+        self.assertEqual(len(result.invitations), 1)
+        self.assertEqual(
+            result.invitations[0].invitation_id,
+            UUID(row["invitation_id"]),
+        )
+        self.assertEqual(result.invitations[0].farm_name, "Green Farm")
+        self.assertEqual(result.invitations[0].role, "Worker")
         repository.list_by_email.assert_called_once_with("new-member@example.com")
+        repository.get_farm_name.assert_called_once_with(str(farm_id))
 
     def test_create_generates_token_and_stores_only_hash(self) -> None:
         farm_id = uuid4()
@@ -176,6 +186,7 @@ class FarmInvitationServiceTests(unittest.TestCase):
             "result": "accepted",
             "invitation": accepted_row,
         }
+        repository.get_farm_name.return_value = "Green Farm"
         service = FarmInvitationService(repository)
 
         result = service.accept_invitation(
@@ -184,9 +195,11 @@ class FarmInvitationServiceTests(unittest.TestCase):
 
         self.assertEqual(result.status, "accepted")
         self.assertEqual(result.farm_id, farm_id)
+        self.assertEqual(result.farm_name, "Green Farm")
         repository.accept_by_token_hash.assert_called_once_with(
             hashlib.sha256(token.encode("utf-8")).hexdigest()
         )
+        repository.get_farm_name.assert_called_once_with(str(farm_id))
 
     def test_accept_maps_contact_mismatch_to_domain_error(self) -> None:
         repository = Mock(spec=FarmInvitationRepository)
@@ -217,6 +230,21 @@ class FarmInvitationServiceTests(unittest.TestCase):
 
 
 class FarmInvitationRepositoryTests(unittest.TestCase):
+    def test_get_farm_name_looks_up_name_by_farm_id(self) -> None:
+        client = Mock()
+        client.rpc.return_value.execute.return_value = (
+            SimpleNamespace(data=[{"farm_name": "Green Farm"}])
+        )
+        repository = FarmInvitationRepository(client)
+
+        result = repository.get_farm_name("farm-123")
+
+        self.assertEqual(result, "Green Farm")
+        client.rpc.assert_called_once_with(
+            "get_invited_farm_name",
+            {"p_farm_id": "farm-123"},
+        )
+
     def test_list_by_email_resolves_sender_email_from_user_table(self) -> None:
         client = Mock()
         farm_id = uuid4()
@@ -370,12 +398,14 @@ class FarmInvitationControllerTests(unittest.TestCase):
         row = FarmInvitationResponse.model_validate(
             invitation_row(self.farm_id, self.membership_id)
         )
-        self.service.list_received_invitations.return_value = [row]
+        self.service.list_received_invitations.return_value = (
+            FarmInvitationListResponse(invitations=[row])
+        )
 
         response = self.client.get("/invitations")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(len(response.json()["invitations"]), 1)
         self.service.list_received_invitations.assert_called_once_with(
             "member@example.com"
         )

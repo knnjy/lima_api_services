@@ -46,25 +46,18 @@ class FarmInvitationAccept(BaseModel):
 class FarmInvitationResponse(BaseModel):
     invitation_id: UUID
     farm_id: UUID
-    role_id: int
-    invited_by: UUID
-    invited_by_email: str | None = None
-    email: str | None
-    phone: str | None
+    farm_name: str
+    role: str
     status: InvitationStatus
     expires_at: datetime
     created_at: datetime
-    accepted_at: datetime | None
+
 
     # token_hash is deliberately excluded.
 
-
-class FarmInvitationCreatedResponse(FarmInvitationResponse):
-    # Provider acceptance is not a guarantee of inbox delivery.
-    invitation_token: str
-    email_delivery_status: InvitationEmailStatus = "not_requested"
-    email_message_id: str | None = None
-
+class FarmInvitationListResponse(BaseModel):
+    invitations: list[FarmInvitationResponse]
+    
 
 class CreatedInvitationResponse(BaseModel):
     invitation_id: UUID
@@ -77,3 +70,10 @@ class CreatedInvitationResponse(BaseModel):
     expires_at: datetime
     created_at: datetime
     accepted_at: datetime | None
+
+class FarmInvitationCreatedResponse(CreatedInvitationResponse):
+    # Provider acceptance is not a guarantee of inbox delivery.
+    invitation_token: str
+    email_delivery_status: InvitationEmailStatus = "not_requested"
+    email_message_id: str | None = None
+

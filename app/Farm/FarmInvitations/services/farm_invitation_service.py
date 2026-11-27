@@ -14,8 +14,10 @@ from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
+    FarmInvitationListResponse,
     FarmInvitationResponse,
 )
+from app.Farm.FarmManagement.services.farm_service import FARM_ROLE_NAMES
 
 
 class FarmInvitationUnavailableError(Exception):
@@ -52,17 +54,24 @@ class FarmInvitationService:
             rows = self._repository.list_by_farm(str(farm_id))
         except FarmInvitationDataAccessError as exc:
             raise FarmInvitationUnavailableError from exc
-        return [FarmInvitationResponse.model_validate(row) for row in rows]
+        return [CreatedInvitationResponse.model_validate(row) for row in rows]
 
     def list_received_invitations(
         self,
         email: str,
-    ) -> list[FarmInvitationResponse]:
+    ) -> FarmInvitationListResponse:
         try:
             rows = self._repository.list_by_email(email.strip().lower())
         except FarmInvitationDataAccessError as exc:
             raise FarmInvitationUnavailableError from exc
-        return [FarmInvitationResponse.model_validate(row) for row in rows]
+        return FarmInvitationListResponse(
+            invitations=[
+                FarmInvitationResponse.model_validate(
+                    self._include_response_details(row)
+                )
+                for row in rows
+            ]
+        )
 
     def create_invitation(
         self,
@@ -192,7 +201,38 @@ class FarmInvitationService:
             raise FarmInvitationUnavailableError(
                 "Farm invitation acceptance returned an invalid response"
             )
-        return FarmInvitationResponse.model_validate(accepted_invitation)
+        return FarmInvitationResponse.model_validate(
+            self._include_response_details(accepted_invitation)
+        )
+
+    def _include_response_details(
+        self,
+        invitation: dict[str, object],
+    ) -> dict[str, object]:
+        farm_id = invitation.get("farm_id")
+        if not isinstance(farm_id, str):
+            raise FarmInvitationUnavailableError(
+                "Farm invitation returned an invalid farm ID"
+            )
+        try:
+            farm_name = self._repository.get_farm_name(farm_id)
+        except FarmInvitationDataAccessError as exc:
+            raise FarmInvitationUnavailableError from exc
+        if farm_name is None:
+            raise FarmInvitationUnavailableError(
+                "Farm name could not be found for the invitation"
+            )
+        try:
+            role_name = FARM_ROLE_NAMES[int(invitation["role_id"])]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise FarmInvitationUnavailableError(
+                "Farm invitation returned an invalid role ID"
+            ) from exc
+        return {
+            **invitation,
+            "farm_name": farm_name,
+            "role": role_name,
+        }
 
     def _get_row(
         self,

@@ -6,6 +6,7 @@ from app.Farm.FarmInvitations.controllers.farm_invitation_controller import (
 from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     CreatedInvitationResponse,
     FarmInvitationCreatedResponse,
+    FarmInvitationListResponse,
     FarmInvitationResponse,
 )
 
@@ -20,7 +21,7 @@ accept_router.add_api_route(
     "",
     invitation_controller.list_received_invitations,
     methods=["GET"],
-    response_model=list[FarmInvitationResponse],
+    response_model=FarmInvitationListResponse,
 )
 
 accept_router.add_api_route(
