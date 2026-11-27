@@ -1,8 +1,8 @@
-from app.LivestockRegistry.dao.farm_membership_repository import (
+from app.Farm.FarmMemberships.dao.farm_membership_repository import (
     FarmMembershipDataAccessError,
     FarmMembershipRepository,
 )
-from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
+from app.Farm.FarmMemberships.dto.farm_membership_schema import FarmMembershipCreate
 
 
 class FarmMembershipUnavailableError(Exception):

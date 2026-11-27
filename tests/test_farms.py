@@ -9,24 +9,24 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from postgrest.exceptions import APIError
 
-from app.LivestockRegistry.dao.farm_membership_repository import (
+from app.Farm.FarmMemberships.dao.farm_membership_repository import (
     FarmMembershipRepository,
 )
-from app.LivestockRegistry.dao.farm_repository import FarmAuthError, FarmRepository
-from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
-from app.LivestockRegistry.dto.farm_schema import (
+from app.Farm.FarmManagement.dao.farm_repository import FarmAuthError, FarmRepository
+from app.Farm.FarmMemberships.dto.farm_membership_schema import FarmMembershipCreate
+from app.Farm.FarmManagement.dto.farm_schema import (
     FarmCreate,
     FarmListResponse,
     FarmResponse,
     FarmUpdate,
 )
 from app.LivestockRegistry.errors import FarmNotFoundError
-from app.LivestockRegistry.router.farm_router import router
-from app.LivestockRegistry.services.farm_service import (
+from app.Farm.FarmManagement.router.farm_router import router
+from app.Farm.FarmManagement.services.farm_service import (
     FarmAccessDeniedError,
     FarmService,
 )
-from app.LivestockRegistry.utils.farm_dependencies import get_farm_service
+from app.Farm.FarmManagement.utils.farm_dependencies import get_farm_service
 from app.common.dependencies.farm_access import (
     AuthenticatedFarmUser,
     FarmRoleMembership,

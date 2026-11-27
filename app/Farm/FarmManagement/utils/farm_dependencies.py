@@ -1,10 +1,10 @@
 from fastapi import Depends
 
-from app.LivestockRegistry.dao.farm_membership_repository import (
+from app.Farm.FarmMemberships.dao.farm_membership_repository import (
     FarmMembershipRepository,
 )
-from app.LivestockRegistry.dao.farm_repository import FarmRepository
-from app.LivestockRegistry.services.farm_service import FarmService
+from app.Farm.FarmManagement.dao.farm_repository import FarmRepository
+from app.Farm.FarmManagement.services.farm_service import FarmService
 from app.common.dependencies.farm_access import (
     AuthenticatedFarmUser,
     get_authenticated_farm_user,

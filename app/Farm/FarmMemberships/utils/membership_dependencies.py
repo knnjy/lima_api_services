@@ -4,10 +4,10 @@ from app.Authentication.dependencies import (
     AuthenticatedUser,
     get_authenticated_user,
 )
-from app.LivestockRegistry.services.farm_membership_service import (
+from app.Farm.FarmMemberships.services.farm_membership_service import (
     FarmMembershipService,
 )
-from app.LivestockRegistry.dao.farm_membership_repository import (
+from app.Farm.FarmMemberships.dao.farm_membership_repository import (
     FarmMembershipRepository,
 )
 from app.core.db.supabase_client import create_authenticated_supabase_client

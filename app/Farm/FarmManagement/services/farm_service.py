@@ -1,17 +1,17 @@
 from uuid import UUID
 
 from app.common.dependencies.farm_access import FarmRoleMembership
-from app.LivestockRegistry.dao.farm_membership_repository import (
+from app.Farm.FarmMemberships.dao.farm_membership_repository import (
     FarmMembershipDataAccessError,
     FarmMembershipRepository,
 )
-from app.LivestockRegistry.dao.farm_repository import (
+from app.Farm.FarmManagement.dao.farm_repository import (
     FarmDataAccessError,
     FarmAuthError,
     FarmRepository,
 )
-from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
-from app.LivestockRegistry.dto.farm_schema import (
+from app.Farm.FarmMemberships.dto.farm_membership_schema import FarmMembershipCreate
+from app.Farm.FarmManagement.dto.farm_schema import (
     FarmCreate,
     FarmListItem,
     FarmListResponse,

@@ -46,7 +46,7 @@ class FarmInvitationRepository:
         except (APIError, httpx.HTTPError) as exc:
             logger.exception("Farm invitation recipient list failed")
             raise FarmInvitationDataAccessError from exc
-        return self._include_inviter_emails(response.data)
+        return response.data
 
     def get_by_id(
         self,
@@ -80,11 +80,7 @@ class FarmInvitationRepository:
             raise FarmInvitationDataAccessError(
                 "Farm invitation acceptance returned an invalid response"
             )
-        result = dict(response.data)
-        invitation = result.get("invitation")
-        if isinstance(invitation, dict):
-            result["invitation"] = self._include_inviter_emails([invitation])[0]
-        return result
+        return response.data
 
     def create(self, invitation_data: dict[str, object]) -> dict[str, object]:
         try:
@@ -115,7 +111,7 @@ class FarmInvitationRepository:
             raise FarmInvitationDataAccessError(
                 "Farm invitation insert returned no row"
             )
-        return self._include_inviter_emails(response.data)[0]
+        return response.data[0]
 
     def cancel(self, farm_id: str, invitation_id: str) -> bool:
         try:

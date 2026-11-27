@@ -1,9 +1,9 @@
 from fastapi import APIRouter, status
 
-from app.LivestockRegistry.controllers.farm_invitation_controller import (
+from app.Farm.FarmInvitations.controllers.farm_invitation_controller import (
     FarmInvitationController,
 )
-from app.LivestockRegistry.dto.farm_invitation_schema import (
+from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     CreatedInvitationResponse,
     FarmInvitationCreatedResponse,
     FarmInvitationResponse,

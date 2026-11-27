@@ -13,19 +13,19 @@ from app.common.dependencies.farm_access import (
     FarmRoleMembership,
     get_authenticated_farm_user,
 )
-from app.LivestockRegistry.router.farm_membership_router import router
+from app.Farm.FarmMemberships.router.farm_membership_router import router
 
-from app.LivestockRegistry.dao.farm_membership_repository import (
+from app.Farm.FarmMemberships.dao.farm_membership_repository import (
     FarmMembershipDataAccessError,
     FarmMembershipRepository,
 )
-from app.LivestockRegistry.utils.membership_dependencies import get_farm_membership_service
-from app.LivestockRegistry.services.farm_membership_service import (
+from app.Farm.FarmMemberships.utils.membership_dependencies import get_farm_membership_service
+from app.Farm.FarmMemberships.services.farm_membership_service import (
     FarmNotFoundError,
     FarmMembershipService,
     FarmMembershipUnavailableError,
 )
-from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
+from app.Farm.FarmMemberships.dto.farm_membership_schema import FarmMembershipCreate
 
 
 class FarmMembershipRepositoryTests(unittest.TestCase):

@@ -2,20 +2,20 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Response, status
 
-from app.LivestockRegistry.dto.farm_schema import (
+from app.Farm.FarmManagement.dto.farm_schema import (
     FarmCreate,
     FarmListResponse,
     FarmResponse,
     FarmUpdate,
 )
-from app.LivestockRegistry.services.farm_service import (
+from app.Farm.FarmManagement.services.farm_service import (
     FarmAccessDeniedError,
     FarmCreationRollbackError,
     FarmService,
     FarmUnavailableError,
 )
 from app.LivestockRegistry.errors import FarmNotFoundError
-from app.LivestockRegistry.utils.farm_dependencies import get_farm_service
+from app.Farm.FarmManagement.utils.farm_dependencies import get_farm_service
 from app.common.dependencies.farm_access import (
     AuthenticatedFarmUser,
     get_authenticated_farm_user,

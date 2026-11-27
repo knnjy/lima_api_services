@@ -4,12 +4,12 @@ from html import escape
 from uuid import UUID
 
 from app.common.services.email_service import EmailDeliveryError, EmailService
-from app.LivestockRegistry.dao.farm_invitation_repository import (
+from app.Farm.FarmInvitations.dao.farm_invitation_repository import (
     FarmInvitationDataAccessError,
     PendingFarmInvitationExistsError,
     FarmInvitationRepository,
 )
-from app.LivestockRegistry.dto.farm_invitation_schema import (
+from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     CreatedInvitationResponse,
     FarmInvitationAccept,
     FarmInvitationCreate,

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.LivestockRegistry.controllers.farm_membership_controllers import (
+from app.Farm.FarmMemberships.controllers.farm_membership_controllers import (
     FarmMembershipController,
 )
 router = APIRouter(prefix="/me", tags=["me"])

@@ -4,7 +4,7 @@ import httpx
 from postgrest.exceptions import APIError
 from supabase import Client
 
-from app.LivestockRegistry.dto.farm_membership_schema import FarmMembershipCreate
+from app.Farm.FarmMemberships.dto.farm_membership_schema import FarmMembershipCreate
 
 
 logger = logging.getLogger(__name__)

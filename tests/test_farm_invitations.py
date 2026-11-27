@@ -13,29 +13,29 @@ from app.Authentication.dependencies import (
     AuthenticatedUser,
     get_authenticated_user,
 )
-from app.LivestockRegistry.dao.farm_invitation_repository import (
+from app.Farm.FarmInvitations.dao.farm_invitation_repository import (
     FarmInvitationDataAccessError,
     FarmInvitationRepository,
     PendingFarmInvitationExistsError,
 )
-from app.LivestockRegistry.dto.farm_invitation_schema import (
+from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
     FarmInvitationResponse,
 )
-from app.LivestockRegistry.router.farm_invitation_router import (
+from app.Farm.FarmInvitations.router.farm_invitation_router import (
     accept_router,
     router,
 )
-from app.LivestockRegistry.services.farm_invitation_service import (
+from app.Farm.FarmInvitations.services.farm_invitation_service import (
     FarmInvitationAlreadyExistsError,
     FarmInvitationContactMismatchError,
     FarmInvitationUnavailableError,
     FarmInvitationService,
 )
 from app.common.services.email_service import EmailDeliveryError, EmailService
-from app.LivestockRegistry.utils.farm_invitation_dependencies import (
+from app.Farm.FarmInvitations.utils.farm_invitation_dependencies import (
     get_farm_invitation_service,
 )
 from app.common.dependencies.farm_access import (
@@ -217,7 +217,7 @@ class FarmInvitationServiceTests(unittest.TestCase):
 
 
 class FarmInvitationRepositoryTests(unittest.TestCase):
-    def test_list_by_email_resolves_sender_email_from_membership(self) -> None:
+    def test_list_by_email_resolves_sender_email_from_user_table(self) -> None:
         client = Mock()
         farm_id = uuid4()
         membership_id = uuid4()
@@ -225,11 +225,11 @@ class FarmInvitationRepositoryTests(unittest.TestCase):
         invitation = invitation_row(farm_id, membership_id)
         invitation_table = Mock()
         membership_table = Mock()
-        profile_table = Mock()
+        user_table = Mock()
         client.table.side_effect = {
             "farm_invitation": invitation_table,
             "farm_membership": membership_table,
-            "profile": profile_table,
+            "user": user_table,
         }.get
         (
             invitation_table.select.return_value.eq.return_value.order
@@ -240,7 +240,7 @@ class FarmInvitationRepositoryTests(unittest.TestCase):
                 data=[{"id": str(membership_id), "user_id": str(user_id)}]
             )
         )
-        profile_table.select.return_value.in_.return_value.execute.return_value = (
+        user_table.select.return_value.in_.return_value.execute.return_value = (
             SimpleNamespace(
                 data=[{"user_id": str(user_id), "email": "owner@example.com"}]
             )
@@ -258,7 +258,7 @@ class FarmInvitationRepositoryTests(unittest.TestCase):
             "id",
             [str(membership_id)],
         )
-        profile_table.select.return_value.in_.assert_called_once_with(
+        user_table.select.return_value.in_.assert_called_once_with(
             "user_id",
             [str(user_id)],
         )

@@ -3,14 +3,14 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Response, status
 
 from app.Authentication.dependencies import AuthenticatedUser, get_authenticated_user
-from app.LivestockRegistry.dto.farm_invitation_schema import (
+from app.Farm.FarmInvitations.dto.farm_invitation_schema import (
     CreatedInvitationResponse,
     FarmInvitationAccept,
     FarmInvitationCreate,
     FarmInvitationCreatedResponse,
     FarmInvitationResponse,
 )
-from app.LivestockRegistry.services.farm_invitation_service import (
+from app.Farm.FarmInvitations.services.farm_invitation_service import (
     FarmInvitationAlreadyExistsError,
     FarmInvitationContactMismatchError,
     FarmInvitationNotFoundError,
@@ -18,7 +18,7 @@ from app.LivestockRegistry.services.farm_invitation_service import (
     FarmInvitationUnavailableError,
     InvalidFarmInvitationStateError,
 )
-from app.LivestockRegistry.utils.farm_invitation_dependencies import (
+from app.Farm.FarmInvitations.utils.farm_invitation_dependencies import (
     get_farm_invitation_service,
 )
 from app.common.dependencies.farm_access import (

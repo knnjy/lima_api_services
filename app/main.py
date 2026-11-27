@@ -8,12 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.Authentication import router as authentication_router
 from app.IdentityAndAccess.router.profile_router import router as profile_router
-from app.LivestockRegistry.router.farm_router import router as farm_crud_router
-from app.LivestockRegistry.router.farm_membership_router import router as farm_router
+from app.Farm.FarmManagement.router.farm_router import router as farm_crud_router
+from app.Farm.FarmMemberships.router.farm_membership_router import router as farm_router
 from app.LivestockRegistry.router.animal_router import router as animal_router
 from app.LivestockRegistry.router.animal_group_router import router as animal_group_router
 from app.LivestockRegistry.router.species_router import router as species_router
-from app.LivestockRegistry.router.farm_invitation_router import (
+from app.Farm.FarmInvitations.router.farm_invitation_router import (
     accept_router as farm_invitation_accept_router,
     router as farm_invitation_router,
 )

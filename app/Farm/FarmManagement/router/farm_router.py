@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 
-from app.LivestockRegistry.controllers.farm_controller import FarmController
-from app.LivestockRegistry.dto.farm_schema import FarmListResponse, FarmResponse
+from app.Farm.FarmManagement.controllers.farm_controller import FarmController
+from app.Farm.FarmManagement.dto.farm_schema import FarmListResponse, FarmResponse
 
 router = APIRouter(prefix="/farms", tags=["farms"])
 farm_controller = FarmController()
