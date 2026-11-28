@@ -22,11 +22,17 @@ from app.common.dependencies.farm_access import (
 class AnimalController:
     def list_animals(
         self,
+        farm_id: UUID,
         context: AuthenticatedFarmUser = Depends(get_authenticated_farm_user),
         animal_service: AnimalService = Depends(get_animal_service),
     ) -> list[AnimalResponse]:
         try:
-            return animal_service.list_animals(self._farm_ids(context))
+            return animal_service.list_animals(farm_id, self._farm_ids(context))
+        except FarmAccessDeniedError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this farm",
+            ) from exc
         except AnimalUnavailableError as exc:
             raise self._unavailable_error() from exc
 

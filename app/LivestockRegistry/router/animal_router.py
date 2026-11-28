@@ -7,7 +7,7 @@ router = APIRouter(prefix="/me/animals", tags=["animals"])
 animal_controller = AnimalController()
 
 router.add_api_route(
-    "",
+    "/{farm_id}",
     animal_controller.list_animals,
     methods=["GET"],
     response_model=list[AnimalResponse],

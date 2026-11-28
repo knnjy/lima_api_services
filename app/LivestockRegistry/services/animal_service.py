@@ -29,11 +29,15 @@ class AnimalService:
     def __init__(self, repository: AnimalRepository) -> None:
         self._repository = repository
 
-    def list_animals(self, farm_ids: list[str]) -> list[AnimalResponse]:
-        if not farm_ids:
-            return []
+    def list_animals(
+        self,
+        farm_id: UUID,
+        farm_ids: list[str],
+    ) -> list[AnimalResponse]:
+        if str(farm_id) not in farm_ids:
+            raise FarmAccessDeniedError
         try:
-            rows = self._repository.list_by_farms(farm_ids)
+            rows = self._repository.list_by_farms([str(farm_id)])
             return [AnimalResponse.model_validate(row) for row in rows]
         except AnimalDataAccessError as exc:
             raise AnimalUnavailableError from exc
