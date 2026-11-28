@@ -45,11 +45,15 @@ class AnimalGroupService:
         self._repository = repository
         self._species_service = species_service
 
-    def list_animal_groups(self, farm_ids: list[str]) -> list[AnimalGroupResponse]:
-        if not farm_ids:
-            return []
+    def list_animal_groups(
+        self,
+        farm_id: UUID,
+        farm_ids: list[str],
+    ) -> list[AnimalGroupResponse]:
+        if str(farm_id) not in farm_ids:
+            raise AnimalGroupFarmAccessDeniedError
         try:
-            rows = self._repository.list_by_farms(farm_ids)
+            rows = self._repository.list_by_farms([str(farm_id)])
             return [AnimalGroupResponse.model_validate(row) for row in rows]
         except AnimalGroupDataAccessError as exc:
             raise AnimalGroupUnavailableError from exc

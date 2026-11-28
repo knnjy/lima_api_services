@@ -8,7 +8,7 @@ router = APIRouter(prefix="/me/animal-groups", tags=["animal-groups"])
 animal_group_controller = AnimalGroupController()
 
 router.add_api_route(
-    "",
+    "/{farm_id}",
     animal_group_controller.list_animal_groups,
     methods=["GET"],
     response_model=list[AnimalGroupResponse],
@@ -21,7 +21,7 @@ router.add_api_route(
     status_code=status.HTTP_201_CREATED,
 )
 router.add_api_route(
-    "/{animal_group_id}",
+    "/id/{animal_group_id}",
     animal_group_controller.get_animal_group,
     methods=["GET"],
     response_model=AnimalGroupResponse,

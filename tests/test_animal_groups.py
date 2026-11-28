@@ -82,6 +82,34 @@ class AnimalGroupRepositoryTests(unittest.TestCase):
 
 
 class AnimalGroupServiceTests(unittest.TestCase):
+    def test_list_animal_groups_queries_only_the_requested_farm(self) -> None:
+        farm_id = uuid4()
+        other_farm_id = uuid4()
+        repository = Mock(spec=AnimalGroupRepository)
+        repository.list_by_farms.return_value = []
+
+        result = AnimalGroupService(
+            repository,
+            Mock(spec=SpeciesService),
+        ).list_animal_groups(
+            farm_id,
+            [str(farm_id), str(other_farm_id)],
+        )
+
+        self.assertEqual(result, [])
+        repository.list_by_farms.assert_called_once_with([str(farm_id)])
+
+    def test_list_animal_groups_rejects_farms_without_membership(self) -> None:
+        repository = Mock(spec=AnimalGroupRepository)
+
+        with self.assertRaises(AnimalGroupFarmAccessDeniedError):
+            AnimalGroupService(
+                repository,
+                Mock(spec=SpeciesService),
+            ).list_animal_groups(uuid4(), [])
+
+        repository.list_by_farms.assert_not_called()
+
     def test_create_rejects_farms_without_membership(self) -> None:
         animal_group = AnimalGroupCreate(
             farm_id=uuid4(),
@@ -183,11 +211,34 @@ class AnimalGroupControllerTests(unittest.TestCase):
     def test_list_animal_groups(self) -> None:
         self.service.list_animal_groups.return_value = []
 
-        response = self.client.get("/me/animal-groups")
+        response = self.client.get(
+            f"/me/animal-groups/{self.farm_id}",
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
-        self.service.list_animal_groups.assert_called_once_with([str(self.farm_id)])
+        self.service.list_animal_groups.assert_called_once_with(
+            self.farm_id,
+            [str(self.farm_id)],
+        )
+
+    def test_list_animal_groups_rejects_farm_without_membership(self) -> None:
+        requested_farm_id = uuid4()
+        self.service.list_animal_groups.side_effect = AnimalGroupFarmAccessDeniedError
+
+        response = self.client.get(
+            f"/me/animal-groups/{requested_farm_id}",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()["detail"],
+            "You do not have access to this farm",
+        )
+        self.service.list_animal_groups.assert_called_once_with(
+            requested_farm_id,
+            [str(self.farm_id)],
+        )
 
     def test_create_animal_group(self) -> None:
         row = animal_group_row(self.group_id, self.farm_id)
@@ -215,7 +266,7 @@ class AnimalGroupControllerTests(unittest.TestCase):
         row = animal_group_row(self.group_id, self.farm_id)
         self.service.get_animal_group.return_value = AnimalGroupResponse.model_validate(row)
 
-        response = self.client.get(f"/me/animal-groups/{self.group_id}")
+        response = self.client.get(f"/me/animal-groups/id/{self.group_id}")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["animal_group_id"], str(self.group_id))

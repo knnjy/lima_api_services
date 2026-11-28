@@ -77,10 +77,17 @@ class AnimalControllerTests(unittest.TestCase):
 
     def test_list_animals_rejects_farm_without_membership(self) -> None:
         self.service.list_animals.side_effect = FarmAccessDeniedError
+        requested_farm_id = uuid4()
 
-        response = self.client.get(f"/me/animals/{uuid4()}")
+        response = self.client.get(f"/me/animals/{requested_farm_id}")
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["detail"], "You do not have access to this farm")
-        self.service.list_animals.assert_called_once()
+        self.assertEqual(
+            response.json()["detail"],
+            "You do not have access to this farm",
+        )
+        self.service.list_animals.assert_called_once_with(
+            requested_farm_id,
+            [str(self.farm_id)],
+        )
 
